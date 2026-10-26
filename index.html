@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<script>
+/* =====================================================================
+   МЕНЮ YAPPI. Всё меню редактируется здесь.
+   Источник: «Menu EST Yappi.pdf» (цены и составы оттуда).
+
+   Поля позиции:
+     cat     id категории из CATEGORIES
+     no      номер блюда из меню (по нему удобно заказывать), или ""
+     name    "Название" (одинаково на обоих языках)
+             или { ru: "...", et: "..." }
+     desc    { ru: "...", et: "..." } состав, можно пустые строки
+     pcs     количество штук (число) или null
+     size    размер, напр. 30 (для пиццы, в см) или null
+     price   цена в евро: 9.5 → «9,50 €»
+             две цены: [9, 10.5] → «9,00 / 10,50 €»
+     image   путь к фото, напр. "img/101.webp", или "" если фото нет
+     tags    необязательно: ["spicy"] острое
+   ===================================================================== */
+
+const CATEGORIES = [
+  { id: "maki",     ru: "Маки-роллы",       et: "Maki",
+    note: { ru: "Содержит кунжут. Соус унаги есть в некоторых роллах.", et: "Sisaldab seesamit. Unagi kaste on osades rullides." } },
+  { id: "baked",    ru: "Запечённые роллы", et: "Küpsetatud maki",
+    note: { ru: "Содержит кунжут. Во всех роллах есть соус унаги.", et: "Sisaldab seesamit. Kõik rullid sisaldavad unagi kastet." } },
+  { id: "tempura",  ru: "Темпура-роллы",    et: "Tempura maki",
+    note: { ru: "Содержит кунжут. Во всех роллах есть соус унаги.", et: "Sisaldab seesamit. Kõik rullid sisaldavad unagi kastet." } },
+  { id: "sets",     ru: "Сеты",             et: "Setid",
+    note: { ru: "На сеты действует специальная цена, другие скидки на них не распространяются.", et: "Nendele komplektidele kehtib erihind. Täiendavad soodustused ei laiene." } },
+  { id: "shawroll", ru: "ShawRoll",         et: "ShawRoll",
+    note: { ru: "Цена: обычный / в темпуре. Острый или неострый на выбор.", et: "Hind: tavaline / tempura. Valikus vürtsikas või mitte vürtsikas." } },
+  { id: "snacks",   ru: "Закуски",          et: "Eelroad" },
+  { id: "salads",   ru: "Салаты и супы",    et: "Salatid ja supid" },
+  { id: "wok",      ru: "Вок и паста",      et: "Wok ja pasta" },
+  { id: "pizza",    ru: "Пицца",            et: "Pizza" },
+  { id: "sauces",   ru: "Соусы и добавки",  et: "Kastmed ja lisandid" }
+];
+
+const MENU = [
+  // --- Маки-роллы ---
+  { cat: "maki", no: "101", name: "Salmon Sushi", pcs: 8, price: 9.5, image: "img/101.webp",
+    desc: { ru: "Лосось в темпуре, сливочный сыр, огурец, паприка", et: "Tempura lõhe, toorjuust, kurk, paprika" } },
+  { cat: "maki", no: "102", name: "Ebi", pcs: 8, price: 9.5, image: "img/102.webp",
+    desc: { ru: "Королевская креветка в темпуре, сливочный сыр, листовой салат", et: "Tempura hiidkrevett, toorjuust, lehtsalat" } },
+  { cat: "maki", no: "103", name: "Cream Cheese", pcs: 8, price: 7.5, image: "img/103.webp",
+    desc: { ru: "Сливочный сыр, огурец", et: "Toorjuust, kurk" } },
+  { cat: "maki", no: "104", name: "Canada", pcs: 8, price: 9.5, image: "img/104.webp",
+    desc: { ru: "Лосось, сливочный сыр, огурец", et: "Lõhe, toorjuust, kurk" } },
+  { cat: "maki", no: "105", name: "California", pcs: 8, price: 9.5, image: "img/105.webp",
+    desc: { ru: "Креветка, сливочный сыр, огурец, икра масаго", et: "Krevett, toorjuust, kurk, masago mari" } },
+  { cat: "maki", no: "106", name: "Philadelphia", pcs: 8, price: 9.5, image: "img/106.webp",
+    desc: { ru: "Лосось, сливочный сыр, огурец", et: "Lõhe, toorjuust, kurk" } },
+  { cat: "maki", no: "107", name: "Ananass Ebi", pcs: 8, price: 9.5, image: "img/107.webp",
+    desc: { ru: "Креветка, сливочный сыр, ананас, икра масаго, сырная шапочка", et: "Krevett, toorjuust, ananass, masago mari, juustumütsike" } },
+  { cat: "maki", no: "108", name: "Crazy Salmon", pcs: 8, price: 10, image: "img/108.webp",
+    desc: { ru: "Крабовое мясо, сливочный сыр, свежий рубленый лосось, сливочный соус и соус унаги", et: "Krabiliha, toorjuust, värske tükeldatud lõhe, koore- ja unagi kaste" } },
+  { cat: "maki", no: "109", name: "Wakame", pcs: 8, price: 7.5, image: "img/109.webp",
+    desc: { ru: "Сливочный сыр, огурец, паприка, вакаме, икра", et: "Toorjuust, kurk, paprika, wakame, mari" } },
+  { cat: "maki", no: "110", name: "Crazy Mix", pcs: 8, price: 10, image: "img/110.webp",
+    desc: { ru: "Креветка, сливочный сыр, огурец, сверху лосось и крабовое мясо, сливочный соус и соус унаги", et: "Krevett, toorjuust, kurk, peal lõhe ja krabiliha, koore- ja unagi kaste" } },
+  { cat: "maki", no: "111", name: "Maki", pcs: 8, price: 3.5, image: "img/111.webp",
+    desc: { ru: "Одна начинка на выбор: лосось, крабовое мясо, креветка, угорь, огурец, паприка или авокадо", et: "Üks täidis valikul: lõhe, krabiliha, krevett, angerjas, kurk, paprika või avokaado" } },
+  { cat: "maki", no: "112", name: "TT Ebi", pcs: 8, price: 9, image: "img/112.webp",
+    desc: { ru: "Сливочный сыр, креветка в темпуре", et: "Toorjuust, tempura krevett" } },
+  { cat: "maki", no: "113", name: "TT Salmon", pcs: 8, price: 9, image: "img/113.webp",
+    desc: { ru: "Лосось в темпуре, сливочный сыр", et: "Tempura lõhe, toorjuust" } },
+  { cat: "maki", no: "115", name: "Golden", pcs: 8, price: 12.5, image: "img/115.webp",
+    desc: { ru: "Крабовое мясо, креветка в темпуре, сверху свежий лосось", et: "Krabiliha, tempura krevett, peal värske lõhe" } },
+  { cat: "maki", no: "116", name: "Fresh Crab", pcs: 8, price: 8.5, image: "img/116.webp",
+    desc: { ru: "Крабовое мясо, сливочный сыр, огурец", et: "Krabiliha, toorjuust, kurk" } },
+  { cat: "maki", no: "117", name: "Philadelphia Ebi", pcs: 8, price: 10.5, image: "img/117.webp",
+    desc: { ru: "Лосось, сливочный сыр, креветка, икра масаго", et: "Lõhe, toorjuust, krevett, masago mari" } },
+  { cat: "maki", no: "118", name: "Ebi Wakame", pcs: 8, price: 9.5, image: "img/118.webp",
+    desc: { ru: "Креветка, сливочный сыр, огурец, вакаме", et: "Krevett, toorjuust, kurk, wakame" } },
+  { cat: "maki", no: "123", name: "Philadelphia Lux", pcs: 8, price: 10.5, image: "img/123.webp",
+    desc: { ru: "Лосось, сливочный сыр, авокадо, икра", et: "Lõhe, toorjuust, avokaado, mari" } },
+  { cat: "maki", no: "124", name: "Crab Lux", pcs: 8, price: 8, image: "img/124.webp",
+    desc: { ru: "Крабовое мясо, авокадо, соус шрирача, икра", et: "Krabiliha, avokaado, Sriracha kaste, mari" } },
+  { cat: "maki", no: "130", name: "Jima Spicy", pcs: 8, price: 9, image: "img/130.webp", tags: ["spicy"],
+    desc: { ru: "Хрустящий лук, хрустящий кальмар, ананас, халапеньо, сливочный сыр", et: "Krõbe sibul, krõbe kalmaar, ananass, jalapeño, toorjuust" } },
+  { cat: "maki", no: "131", name: "Jima", pcs: 8, price: 8.5, image: "img/131.webp",
+    desc: { ru: "Хрустящий лук, хрустящий кальмар, помидор, сливочный сыр", et: "Krõbe sibul, krõbe kalmaar, tomat, toorjuust" } },
+  { cat: "maki", no: "133", name: "Sunrise", pcs: 8, price: 11.5, image: "img/133.webp",
+    desc: { ru: "Креветка в темпуре, сливочный сыр, лосось, соус BBQ", et: "Tempura krevett, toorjuust, lõhe, BBQ kaste" } },
+
+  // --- Запечённые роллы ---
+  { cat: "baked", no: "205", name: "Spicy Ebi", pcs: 8, price: 12, image: "img/205.webp", tags: ["spicy"],
+    desc: { ru: "Крабовое мясо, сливочный сыр, шапочка из запечённых креветок", et: "Krabiliha, toorjuust, küpsetatud krevetimütsiga" } },
+  { cat: "baked", no: "206", name: "Nikibi", pcs: 8, price: 13, image: "img/206.webp",
+    desc: { ru: "Крабовое мясо, авокадо, угорь, креветка", et: "Krabiliha, avokaado, angerjas, krevett" } },
+  { cat: "baked", no: "208", name: "Cheese Salmon", pcs: 10, price: 10, image: "img/208.webp",
+    desc: { ru: "Лосось, сливочный сыр, огурец", et: "Lõhe, toorjuust, kurk" } },
+  { cat: "baked", no: "209", name: "Cheese Ebi", pcs: 10, price: 10, image: "img/209.webp",
+    desc: { ru: "Креветка, сливочный сыр, огурец", et: "Krevett, toorjuust, kurk" } },
+  { cat: "baked", no: "210", name: "Cheese Crab", pcs: 10, price: 10, image: "img/210.webp",
+    desc: { ru: "Крабовое мясо, сливочный сыр, огурец", et: "Krabiliha, toorjuust, kurk" } },
+  { cat: "baked", no: "211", name: "Smoked Eel", pcs: 10, price: 13.5, image: "img/211.webp",
+    desc: { ru: "Копчёный угорь, сливочный сыр, огурец", et: "Suitsuangerjas, toorjuust, kurk" } },
+  { cat: "baked", no: "212", name: "California Crab Spice", pcs: 8, price: 9.5, image: "img/212.webp", tags: ["spicy"],
+    desc: { ru: "Крабовое мясо, огурец, острый соус, икра масаго. Острый соус можно заменить на чесночно-сырный", et: "Krabiliha, kurk, vürtsikas kaste, masago mari. Terava kastme võib soovi korral vahetada küüslaugu-juustu kastme vastu" } },
+  { cat: "baked", no: "213", name: "California Salmon", pcs: 8, price: 9.5, image: "img/213.webp",
+    desc: { ru: "Лосось, сливочный сыр, чесночно-сырный соус, икра масаго", et: "Lõhe, toorjuust, küüslaugu-juustu kaste, masago mari" } },
+  { cat: "baked", no: "214", name: "Tropikana", pcs: 8, price: 9.5, image: "img/214.webp",
+    desc: { ru: "Креветка, ананас, сливочный сыр, икра масаго", et: "Krevett, ananass, toorjuust, masago mari" } },
+  { cat: "baked", no: "218", name: "Cream Cheese Spicy", pcs: 8, price: 8, image: "img/218.webp", tags: ["spicy"],
+    desc: { ru: "Сливочный сыр, огурец, острый соус", et: "Toorjuust, kurk, terav «Spicy» kaste" } },
+  { cat: "baked", no: "230", name: "Kanisalmon", pcs: 8, price: 10.5, image: "img/230.webp",
+    desc: { ru: "Крабовое мясо, сливочный сыр, сверху рубленый лосось", et: "Krabiliha, toorjuust, peal tükeldatud lõhe" } },
+  { cat: "baked", no: "231", name: "Chicken", pcs: 8, price: 9, image: "img/231.webp",
+    desc: { ru: "Жареная курица, сливочный сыр, помидор, сырная шапочка", et: "Praetud kana, toorjuust, tomat, juustumütsike" } },
+  { cat: "baked", no: "233", name: "Kaniebi", pcs: 8, price: 12, image: "img/233.webp",
+    desc: { ru: "Крабовое мясо, сливочный сыр, сверху запечённые креветки", et: "Krabiliha, toorjuust, peal küpsetatud krevetid" } },
+  { cat: "baked", no: "234", name: "Hot Mix Spice", pcs: 8, price: 11, image: "img/234.webp", tags: ["spicy"],
+    desc: { ru: "Крабовое мясо, сливочный сыр, икра масаго, угорь, лосось", et: "Krabiliha, toorjuust, masago mari, angerjas, lõhe" } },
+  { cat: "baked", no: "235", name: "Hot Mix", pcs: 8, price: 11, image: "img/235.webp",
+    desc: { ru: "Крабовое мясо, сливочный сыр, икра масаго, угорь, лосось", et: "Krabiliha, toorjuust, masago mari, angerjas, lõhe" } },
+  { cat: "baked", no: "236", name: "Hot Crabs", pcs: 8, price: 9.5, image: "img/236.webp",
+    desc: { ru: "Креветки, сливочный сыр, огурец, крабовое мясо, икра масаго", et: "Krevetid, toorjuust, kurk, krabiliha, masago mari" } },
+  { cat: "baked", no: "237", name: "Crabs Spicy", pcs: 8, price: 9.5, image: "img/237.webp", tags: ["spicy"],
+    desc: { ru: "Креветки, сливочный сыр, огурец, крабовое мясо, икра масаго", et: "Krevetid, toorjuust, kurk, krabiliha, masago mari" } },
+  { cat: "baked", no: "238", name: "Hot Philadelphia", pcs: 8, price: 11, image: "img/238.webp",
+    desc: { ru: "Креветка, запечённый лосось, сливочный сыр, паприка, чесночно-сырный соус", et: "Krevett, küpsetatud lõhe, toorjuust, paprika, küüslaugu-juustu kaste" } },
+
+  // --- Темпура-роллы ---
+  { cat: "tempura", no: "315", name: "Tempura Ebi", pcs: 10, price: 10, image: "img/315.webp",
+    desc: { ru: "Креветка, сливочный сыр, икра масаго, огурец, хрустящая панировка", et: "Krevett, toorjuust, masago mari, kurk, krõbe paneering" } },
+  { cat: "tempura", no: "316", name: "Tempura Salmon", pcs: 10, price: 10, image: "img/316.webp",
+    desc: { ru: "Лосось, сливочный сыр, икра масаго, огурец, хрустящая панировка", et: "Lõhe, toorjuust, masago mari, kurk, krõbe paneering" } },
+  { cat: "tempura", no: "317", name: "Tempura Crab", pcs: 10, price: 10, image: "img/317.webp",
+    desc: { ru: "Крабовое мясо, сливочный сыр, икра масаго, огурец, хрустящая панировка", et: "Krabiliha, toorjuust, masago mari, kurk, krõbe paneering" } },
+  { cat: "tempura", no: "318", name: "Mussel", pcs: 10, price: 11, image: "img/318.webp",
+    desc: { ru: "Креветки, сливочный сыр, сырная шапочка с мидиями", et: "Krevetid, toorjuust, juustumütsike merekarpidega" } },
+  { cat: "tempura", no: "319", name: "Garlic", pcs: 10, price: 10, image: "img/319.webp",
+    desc: { ru: "Крабовое мясо, сверху чесночная шапочка", et: "Krabiliha, peal küüslaugumütsike" } },
+  { cat: "tempura", no: "321", name: "Tempura Chicken", pcs: 10, price: 10, image: "img/321.webp",
+    desc: { ru: "Жареная курица, салат фриллис, сливочный сыр", et: "Praetud kana, frillice salat, toorjuust" } },
+  { cat: "tempura", no: "322", name: "Tempura Wakame", pcs: 10, price: 9, image: "img/322.webp",
+    desc: { ru: "Салат фриллис, сливочный сыр, вакаме", et: "Frillice salat, toorjuust, wakame" } },
+  { cat: "tempura", no: "323", name: "Wakame Ebi", pcs: 10, price: 10, image: "img/323.webp",
+    desc: { ru: "Креветка, салат фриллис, сливочный сыр, вакаме", et: "Krevett, frillice salat, toorjuust, wakame" } },
+  { cat: "tempura", no: "324", name: "Wakame Crab", pcs: 10, price: 10, image: "img/324.webp",
+    desc: { ru: "Крабовое мясо, салат фриллис, сливочный сыр, вакаме", et: "Krabiliha, frillice salat, toorjuust, wakame" } },
+  { cat: "tempura", no: "325", name: "Luxury", pcs: 8, price: 13, image: "img/325.webp",
+    desc: { ru: "Лосось, крабовое мясо, вакаме, креветки. 4 шт. с сырно-креветочной шапочкой, 4 шт. с сырной шапочкой и вакаме, сверху соус шрирача", et: "Lõhe, krabiliha, wakame, krevetid. 4 tk juustu-kreveti mütsiga, 4 tk juustu-wakame mütsiga, peal Sriracha kaste" } },
+  { cat: "tempura", no: "329", name: "Sunshine", pcs: 8, price: 11, image: "img/329.webp",
+    desc: { ru: "Жарено-запечённый ролл: сливочный сыр, крабовое мясо, сверху рубленый лосось", et: "Prae-küpsetatud roll: toorjuust, krabiliha, peal tükeldatud lõhe" } },
+  { cat: "tempura", no: "332", name: "Ebi Sake", pcs: 8, price: 11.5, image: "img/332.webp",
+    desc: { ru: "Жарено-запечённый ролл: креветки, сливочный сыр, огурец, сверху рубленый лосось", et: "Prae-küpsetatud roll: krevetid, toorjuust, kurk, peal tükeldatud lõhe" } },
+  { cat: "tempura", no: "333", name: "Samura", pcs: 10, price: 10, image: "img/333.webp",
+    desc: { ru: "Крабовое мясо, креветки, соус шрирача, икра масаго", et: "Krabiliha, krevetid, Sriracha kaste, masago mari" } },
+  { cat: "tempura", no: "334", name: "Agemono", pcs: 10, price: 10.5, image: "img/334.webp",
+    desc: { ru: "Крабовое мясо, угорь, соус шрирача, икра масаго", et: "Krabiliha, angerjas, Sriracha kaste, masago mari" } },
+  { cat: "tempura", no: "335", name: "Crabs And Salmon", pcs: 10, price: 10, image: "img/335.webp",
+    desc: { ru: "Крабовое мясо, лосось, соус шрирача, икра масаго", et: "Krabiliha, lõhe, Sriracha kaste, masago mari" } },
+
+  // --- Сеты ---
+  { cat: "sets", no: "", name: { ru: "Классика", et: "Klassika" }, pcs: 24, price: 24.8, image: "img/set-klassika.webp",
+    desc: { ru: "#106 Philadelphia, #105 California, #116 Fresh Crab", et: "#106 Philadelphia, #105 California, #116 Fresh Crab" } },
+  { cat: "sets", no: "", name: "Salmon Set", pcs: 28, price: 21.2, image: "img/set-salmon.webp",
+    desc: { ru: "#208 Cheese Salmon, #316 Tempura Salmon, #111 маки с лососем", et: "#208 Cheese Salmon, #316 Tempura Salmon, #111 Maki lõhega" } },
+  { cat: "sets", no: "", name: "Crab Set", pcs: 28, price: 25.7, image: "img/set-crab.webp",
+    desc: { ru: "#210 Cheese Crab, #317 Tempura Crab, #116 Fresh Crab", et: "#210 Cheese Crab, #317 Tempura Crab, #116 Fresh Crab" } },
+  { cat: "sets", no: "", name: "Ebi Set", pcs: 28, price: 21.2, image: "img/set-ebi.webp",
+    desc: { ru: "#209 Cheese Ebi, #315 Tempura Ebi, #111 маки с креветкой", et: "#209 Cheese Ebi, #315 Tempura Ebi, #111 Maki krevetiga" } },
+  { cat: "sets", no: "", name: "Green Set", pcs: 24, price: 20.7, image: "img/set-green.webp",
+    desc: { ru: "#103 Cream Cheese, #109 Wakame, #218 Cream Cheese Spicy", et: "#103 Cream Cheese, #109 Wakame, #218 Cream Cheese Spicy" } },
+  { cat: "sets", no: "", name: "Love Chicken", pcs: 18, price: 17.1, image: "img/set-chicken.webp",
+    desc: { ru: "#231 Chicken, #321 Tempura Chicken", et: "#231 Chicken, #321 Tempura Chicken" } },
+  { cat: "sets", no: "", name: "Only Tempura", pcs: 30, price: 27.5, image: "img/set-tempura.webp",
+    desc: { ru: "#315 Tempura Ebi, #316 Tempura Salmon, #334 Agemono", et: "#315 Tempura Ebi, #316 Tempura Salmon, #334 Agemono" } },
+  { cat: "sets", no: "", name: "Baked Set", pcs: 26, price: 25.7, image: "img/set-baked.webp",
+    desc: { ru: "#209 Cheese Ebi, #230 Kanisalmon, #218 Cream Cheese Spicy", et: "#209 Cheese Ebi, #230 Kanisalmon, #218 Cream Cheese Spicy" } },
+
+  // --- ShawRoll (цена: обычный / в темпуре) ---
+  { cat: "shawroll", no: "", name: "ShawRoll Veggie", pcs: null, price: [9, 10.5], image: "img/shaw-veggie.webp",
+    desc: { ru: "Рис, нори, салат, паприка, белый соус, огурец", et: "Riis, nori, salat, paprika, valge kaste, kurk" } },
+  { cat: "shawroll", no: "", name: "ShawRoll Salmon", pcs: null, price: [9, 10.5], image: "img/shaw-salmon.webp",
+    desc: { ru: "Рис, нори, салат, краб, лосось, унаги, белый соус, огурец", et: "Riis, nori, salat, krabi, lõhe, unagi, valge kaste, kurk" } },
+  { cat: "shawroll", no: "", name: "ShawRoll Shrimp", pcs: null, price: [9, 10.5], image: "img/shaw-shrimp.webp",
+    desc: { ru: "Рис, нори, салат, краб, креветки, унаги, белый соус, огурец", et: "Riis, nori, salat, krabi, krevetid, unagi, valge kaste, kurk" } },
+  { cat: "shawroll", no: "", name: "ShawRoll Chicken", pcs: null, price: [9, 10.5], image: "img/shaw-chicken.webp",
+    desc: { ru: "Рис, нори, салат, краб, курица, унаги, белый соус, огурец", et: "Riis, nori, salat, krabi, kana, unagi, valge kaste, kurk" } },
+
+  // --- Закуски ---
+  { cat: "snacks", no: "421", name: { ru: "Салат вакаме", et: "Wakame salat" }, pcs: null, price: 4.5, image: "img/421.webp",
+    desc: { ru: "Водоросли, кунжутный соус", et: "Merevetikad, seesamikaste" } },
+  { cat: "snacks", no: "424", name: { ru: "Куриные крылышки", et: "Kanatiivad" }, pcs: 5, price: 7, image: "img/424.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "425", name: { ru: "Палочки моцарелла", et: "Mozzarella pulgad" }, pcs: 6, price: 5.5, image: "img/425.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "430", name: { ru: "Креветки в темпуре", et: "Tempura krevetid" }, pcs: 6, price: 7.5, image: "img/430.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "433", name: { ru: "Куриные наггетсы", et: "Kananagitsad" }, pcs: 5, price: 4, image: "img/433.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "435", name: { ru: "Картофель фри", et: "Friikartulid" }, pcs: null, price: 3.5, image: "img/435.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "436", name: { ru: "Картофель фри с сосисками", et: "Friikartulid viineritega" }, pcs: null, price: 4.5, image: "img/436.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "437", name: { ru: "Картофель фри с наггетсами", et: "Friikartulid nagitsatega" }, pcs: null, price: 5.5, image: "img/437.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "438", name: { ru: "Закусочная тарелка Fish", et: "Suupistetaldrik Fish" }, pcs: null, price: 25, image: "img/438.webp",
+    desc: { ru: "Картофель фри, сырные палочки, кольца кальмара, креветки и лосось в темпуре", et: "Friikartulid, juustupulgad, kalmaarirõngad, tempura krevetid, tempura lõhe" } },
+  { cat: "snacks", no: "439", name: { ru: "Закусочная тарелка Meat", et: "Suupistetaldrik Meat" }, pcs: null, price: 25, image: "img/439.webp",
+    desc: { ru: "Куриные наггетсы, гренки, сырные палочки, крылышки BBQ, луковые кольца", et: "Kananagitsad, leivakreekerid, juustupulgad, BBQ kanatiivad, sibularõngad" } },
+  { cat: "snacks", no: "440", name: { ru: "Гренки", et: "Leivakreekerid" }, pcs: null, price: 3.5, image: "img/440.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "441", name: { ru: "Луковые кольца", et: "Sibularõngad" }, pcs: 6, price: 4.5, image: "img/441.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "443", name: { ru: "Кольца кальмара", et: "Kalmaarirõngad" }, pcs: 6, price: 4.5, image: "img/443.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "446", name: { ru: "Мясное и сырное ассорти", et: "Liha- ja juustuassortii" }, pcs: null, price: 15, image: "img/446.webp",
+    desc: { ru: "", et: "" } },
+  { cat: "snacks", no: "", name: { ru: "Закусочная тарелка №1", et: "Suupistetaldrik nr 1" }, pcs: null, price: 10, image: "img/plate-1.webp",
+    desc: { ru: "Куриные крылышки, луковые кольца, чесночные гренки", et: "Kanatiivad, sibularõngad, küüslauguleivad" } },
+  { cat: "snacks", no: "", name: { ru: "Закусочная тарелка №2", et: "Suupistetaldrik nr 2" }, pcs: null, price: 11, image: "img/plate-2.webp",
+    desc: { ru: "Куриные наггетсы, луковые кольца, сырные палочки", et: "Kananagitsad, sibularõngad, juustupulgad" } },
+  { cat: "snacks", no: "", name: { ru: "Закусочная тарелка №3", et: "Suupistetaldrik nr 3" }, pcs: null, price: 13, image: "img/plate-3.webp",
+    desc: { ru: "Рыба в панировке, кольца кальмара, чесночные гренки, хрустящие мидии", et: "Kala paneeringus, kalmaarirõngad, küüslauguleivad, krõbedad rannakarbid" } },
+  { cat: "snacks", no: "", name: { ru: "Жаркое в горшочке с курицей или свининой", et: "Pajaroog kana või sealihaga" }, pcs: null, price: 8, image: "img/pajaroog.webp",
+    desc: { ru: "Шампиньоны, картофель, лук, бульон, майонез, сыр", et: "Šampinjonid, kartul, sibul, puljong, majonees, juust" } },
+  /* CHECK: в PDF две цены без пояснения, какая к какому варианту */
+  { cat: "snacks", no: "", name: { ru: "Тосты на выбор", et: "Röstsai kliendi valikul" }, pcs: null, price: [1.5, 2.5], image: "img/rostsai.webp",
+    desc: { ru: "С запечённым сыром, с чесночным сыром, с острым сыром или с запечённым лососем", et: "Küpsetatud juustuga, küüslaugujuustuga, vürtsika juustuga või küpsetatud lõhega" } },
+  /* CHECK: в PDF две цены без пояснения, какая к какому варианту */
+  { cat: "snacks", no: "", name: { ru: "Пельмени на выбор", et: "Pelmeenid kliendi valikul" }, pcs: null, price: [5, 8], image: "img/pelmeenid.webp",
+    desc: { ru: "Жареные или в бульоне", et: "Praetud või puljongis" } },
+
+  // --- Салаты и супы ---
+  { cat: "salads", no: "427", name: { ru: "Салат с курицей", et: "Chicken salat" }, pcs: null, price: 6, image: "img/427.webp",
+    desc: { ru: "Микс салата, помидор, паприка, курица в соусе унаги, медово-горчичный соус", et: "Salatisegu, tomat, paprika, kana unagi kastmes, sinepi-mee kaste" } },
+  { cat: "salads", no: "428", name: { ru: "Салат с креветками", et: "Krevetisalat" }, pcs: null, price: 7, image: "img/428.webp",
+    desc: { ru: "Микс салата, помидор, ананас, креветки, жаренные в чесночном масле, медово-горчичный соус", et: "Salatisegu, tomat, ananass, küüslauguõlis praetud krevetid, sinepi-mee kaste" } },
+  { cat: "salads", no: "429", name: { ru: "Салат «Хрустящий баклажан»", et: "Salat «Krõbe baklažaan»" }, pcs: null, price: 7, image: "img/429.webp",
+    desc: { ru: "Микс салата, помидор, сливочный сыр, баклажан, кунжут, соус унаги", et: "Salatisegu, tomat, toorjuust, baklažaan, seesam, unagi kaste" } },
+  { cat: "salads", no: "601", name: { ru: "Том ям", et: "Tom Yam" }, pcs: null, price: 6.5, image: "img/601.webp",
+    desc: { ru: "Мидии, шампиньоны, черри, креветки, кальмары, сливки", et: "Merekarbid, šampinjonid, kirsstomatid, krevetid, kalmaarid, rõõsk koor" } },
+  { cat: "salads", no: "602", name: { ru: "Куриный суп", et: "Kanasupp" }, pcs: null, price: 5, image: "img/602.webp",
+    desc: { ru: "С лапшой и шампиньонами, морковь, лук", et: "Nuudlite ja šampinjonidega, porgand, sibul" } },
+  { cat: "salads", no: "603", name: { ru: "Том ям с курицей", et: "Tom Yam kanaga" }, pcs: null, price: 5.5, image: "img/603.webp",
+    desc: { ru: "Курица, шампиньоны, черри, сливки", et: "Kana, šampinjonid, kirsstomatid, rõõsk koor" } },
+
+  // --- Вок и паста ---
+  { cat: "wok", no: "520", name: { ru: "Вок с курицей", et: "Wok kanaga" }, pcs: null, price: 7, image: "img/520.webp",
+    desc: { ru: "Лапша, паприка, морковь, лук, курица, соус терияки, кунжут", et: "Nuudlid, paprika, porgand, sibul, kana, teriyaki kaste, seesam" } },
+  { cat: "wok", no: "521", name: { ru: "Вок со свининой", et: "Wok sealihaga" }, pcs: null, price: 7, image: "img/521.webp",
+    desc: { ru: "Лапша, паприка, морковь, лук, свинина, соус терияки, кунжут", et: "Nuudlid, paprika, porgand, sibul, sealiha, teriyaki kaste, seesam" } },
+  { cat: "wok", no: "522", name: { ru: "Вок с креветками", et: "Wok krevettidega" }, pcs: null, price: 8, image: "img/522.webp",
+    desc: { ru: "Лапша, паприка, морковь, лук, креветки, соус терияки. По желанию с ананасом", et: "Nuudlid, paprika, porgand, sibul, krevetid, teriyaki kaste. Soovi korral ananassiga" } },
+  { cat: "wok", no: "523", name: { ru: "Вок с курицей и креветками", et: "Wok kana ja krevettidega" }, pcs: null, price: 9, image: "img/523.webp",
+    desc: { ru: "Лапша, паприка, морковь, лук, курица, креветки, соус терияки", et: "Nuudlid, paprika, porgand, sibul, kana, krevetid, teriyaki kaste" } },
+  { cat: "wok", no: "701", name: { ru: "Сливочная паста с лососем", et: "Koorene lõhepasta" }, pcs: null, price: 7, image: "img/701.webp",
+    desc: { ru: "Паста, сливки, лосось, черри", et: "Pasta, rõõsk koor, lõhe, kirsstomatid" } },
+  { cat: "wok", no: "702", name: { ru: "Сливочная паста с курицей", et: "Koorene kanapasta" }, pcs: null, price: 6, image: "img/702.webp",
+    desc: { ru: "Паста, сливки, курица, черри, пармезан", et: "Pasta, rõõsk koor, kana, kirsstomatid, parmesan" } },
+  { cat: "wok", no: "703", name: { ru: "Сливочная паста с креветками", et: "Koorene pasta krevettidega" }, pcs: null, price: 7, image: "img/703.webp",
+    desc: { ru: "Паста, сливки, креветки, черри, пармезан", et: "Pasta, rõõsk koor, krevetid, kirsstomatid, parmesan" } },
+
+  // --- Пицца (30 см) ---
+  { cat: "pizza", no: "", name: "Margherita", size: 30, price: 12, image: "img/pizza-margherita.webp",
+    desc: { ru: "Соус, сыр", et: "Kaste, juust" } },
+  { cat: "pizza", no: "", name: "Bambini", size: 30, price: 12, image: "img/pizza-bambini.webp",
+    desc: { ru: "Соус, сыр, ветчина", et: "Kaste, juust, sink" } },
+  { cat: "pizza", no: "", name: "Bacon", size: 30, price: 12, image: "img/pizza-bacon.webp",
+    desc: { ru: "Соус, сыр, бекон, оливки", et: "Kaste, juust, peekon, oliivid" } },
+  { cat: "pizza", no: "", name: "Pepperoni", size: 30, price: 12, image: "img/pizza-pepperoni.webp",
+    desc: { ru: "Соус, сыр, пепперони", et: "Kaste, juust, pepperoni" } },
+  { cat: "pizza", no: "", name: "Fungi", size: 30, price: 12, image: "img/pizza-fungi.webp",
+    desc: { ru: "Соус, сыр, ветчина, грибы", et: "Kaste, juust, sink, seened" } },
+  { cat: "pizza", no: "", name: "Quattro Formaggi", size: 30, price: 12, image: "img/pizza-quattro.webp",
+    desc: { ru: "Соус, сыр, моцарелла, горгонзола", et: "Kaste, juust, mozzarella, gorgonzola" } },
+
+  // --- Соусы и добавки ---
+  { cat: "sauces", no: "", name: { ru: "Васаби", et: "Wasabi" }, pcs: null, price: 0.2, image: "img/wasabi.webp", desc: { ru: "", et: "" } },
+  { cat: "sauces", no: "", name: { ru: "Соевый соус", et: "Sojakaste" }, pcs: null, price: 0.3, image: "img/soja.webp", desc: { ru: "", et: "" } },
+  { cat: "sauces", no: "", name: { ru: "Имбирь", et: "Ingver" }, pcs: null, price: 0.5, image: "img/ingver.webp", desc: { ru: "", et: "" } },
+  { cat: "sauces", no: "", name: { ru: "Белый соус", et: "Valge kaste" }, pcs: null, price: 0.7, image: "img/valge.webp", desc: { ru: "", et: "" } },
+  { cat: "sauces", no: "", name: { ru: "Соус унаги", et: "Unagi kaste" }, pcs: null, price: 0.7, image: "img/unagi.webp", desc: { ru: "", et: "" } },
+  { cat: "sauces", no: "", name: { ru: "Сладкий соус чили", et: "Magus tšillikaste" }, pcs: null, price: 0.7, image: "img/chilli.webp", desc: { ru: "", et: "" } }
+];
+</script>
+
+<title>YAPPI Sushi, Jõhvi. Меню: роллы, сеты, пицца, вок</title>
+<meta name="description" content="Меню YAPPI Sushi в Йыхви: маки, запечённые и темпура-роллы, сеты, ShawRoll, закуски, супы, вок, паста и пицца. Narva mnt 8, Jewe keskus. Заказ по телефону +372 5646 1400.">
+<meta name="theme-color" content="#0b0b0b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23d01d21'/%3E%3Cpath d='M9 8l7 9 7-9M16 17v8' stroke='%23ffffff' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preload" as="image" href="img/logo.webp">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="YAPPI Sushi">
+<meta property="og:title" content="YAPPI Sushi, Jõhvi. Меню">
+<meta property="og:description" content="Самые большие роллы в городе. Narva mnt 8, Jõhvi (Jewe keskus). Заказ по телефону +372 5646 1400.">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:locale:alternate" content="et_EE">
+<meta property="og:image" content="og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<!-- TODO: после публикации заменить на полный адрес сайта:
+<meta property="og:url" content="https://ВАШ-ДОМЕН/">
+и og:image на https://ВАШ-ДОМЕН/og.jpg (Facebook требует полный адрес) -->
+
+<!-- CHECK: часы работы 11:00–21:00 (указаны как ежедневные). Проверить и поправить здесь и в подвале. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  "name": "YAPPI Sushi",
+  "servesCuisine": ["Sushi", "Japanese", "Pizza"],
+  "telephone": "+37256461400",
+  "email": "yappisushi@gmail.com",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Narva mnt 8 (Jewe keskus)",
+    "addressLocality": "Jõhvi",
+    "addressRegion": "Ida-Viru maakond",
+    "addressCountry": "EE"
+  },
+  "openingHours": "Mo-Su 11:00-21:00",
+  "acceptsReservations": false,
+  "sameAs": [
+    "https://www.facebook.com/Yappisushi/",
+    "https://www.instagram.com/yappisushi/"
+  ]
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;600&family=Unbounded:wght@600&display=swap">
+
+<style>
+/* ---------------------------------------------------------------------
+   Direction
+   Reference:  YAPPI's own printed menu (dish cutouts on dark, price first)
+               and lit menu boards in a mall food court
+   Mood:       direct, generous, appetite-first. "Big rolls, here's the price."
+   Palette:    brand colours only: black #0B0B0B (cards #161616), white #F8F8F8,
+               red #D01D21 (buttons) / #F04E4C (red text on black)
+   Type:       Unbounded 600 (headings) + Golos Text 400/600 (everything
+               else); scale 1.2 (13/15/18/22/26)
+   Grid:       one column on phones, two from 720px, max 1040px; 4px spacing
+               scale; radius 6px small / 10px cards; no shadows
+   Signature:  price-list rows: dish number, name, dotted leader, price;
+               the menu's own dish cutout photos sitting on the dark card
+   --------------------------------------------------------------------- */
+
+:root {
+  /* Brand colours: black, white, red */
+  --bg:        oklch(15% 0 0);      /* #0B0B0B black */
+  --surface:   oklch(20% 0 0);      /* #161616 cards */
+  --chip:      oklch(25% 0 0);
+  --line:      oklch(33% 0 0);
+  --text:      oklch(98% 0 0);      /* #F8F8F8 white */
+  --muted:     oklch(75% 0 0);
+  --accent:        oklch(55% 0.21 27);  /* #D01D21 brand red: buttons, active chip (white text 5.1:1) */
+  --accent-strong: oklch(50% 0.20 27);  /* pressed */
+  --accent-text:   oklch(65% 0.20 25);  /* #F04E4C same red, lighter so it reads on black (5.1:1) */
+  --on-accent: var(--text);
+
+  --f-head: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --f-body: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs-s: 0.8125rem;   /* 13 */
+  --fs-m: 0.9375rem;   /* 15 */
+  --fs-l: 1.125rem;    /* 18 */
+  --fs-xl: 1.375rem;   /* 22 */
+  --fs-xxl: 1.625rem;  /* 26 */
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+  --r-s: 6px; --r-m: 10px;
+
+  --head-h: 60px;
+  --bar-h: 52px;
+  --ease: cubic-bezier(.2,.7,.2,1);
+  --t-fast: 150ms;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 var(--fs-m)/1.55 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+img { display: block; max-width: 100%; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 var(--s4); }
+
+/* ---------- Top: header + category bar, sticky as one block ---------- */
+.top {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.head { display: flex; align-items: center; gap: var(--s3); height: var(--head-h); }
+.logo { margin-right: auto; display: block; }
+.logo img { height: 44px; width: auto; }
+.lang { display: flex; border: 1px solid var(--line); border-radius: var(--r-s); overflow: hidden; }
+.lang button {
+  font: 600 var(--fs-s)/1 var(--f-body);
+  color: var(--muted);
+  background: none; border: 0;
+  min-width: 40px; height: 36px; padding: 0 var(--s2);
+  cursor: pointer;
+}
+.lang button[aria-pressed="true"] { color: var(--text); background: var(--chip); }
+.lang button:focus-visible, .chips a:focus-visible, .btn:focus-visible, .logo:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
+  min-height: 44px; padding: 0 var(--s4);
+  border-radius: var(--r-s);
+  font: 600 var(--fs-m)/1 var(--f-body);
+  text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.btn svg { width: 18px; height: 18px; flex: none; }
+.btn-call { background: var(--accent); color: var(--on-accent); }
+.btn-call:hover, .btn-call:active { background: var(--accent-strong); }
+.btn-line { border: 1px solid var(--line); color: var(--text); }
+.btn-line:hover { border-color: var(--muted); }
+
+.chips {
+  display: flex; gap: var(--s2);
+  height: var(--bar-h); align-items: center;
+  overflow-x: auto; scrollbar-width: none;
+  margin: 0 calc(var(--s4) * -1); padding: 0 var(--s4) var(--s1);
+  overscroll-behavior-x: contain;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chips a {
+  flex: none;
+  display: inline-flex; align-items: center;
+  height: 36px; padding: 0 var(--s3);
+  border-radius: var(--r-s);
+  background: var(--chip);
+  color: var(--muted);
+  font: 600 var(--fs-s)/1 var(--f-body);
+  white-space: nowrap; text-decoration: none;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.chips a:hover { color: var(--text); }
+.chips a[aria-current="true"] { background: var(--accent); color: var(--on-accent); }
+
+/* ---------- Intro ---------- */
+.intro { padding: var(--s6) 0 var(--s2); }
+.intro h1 {
+  font: 600 var(--fs-xxl)/1.15 var(--f-head);
+  margin: 0 0 var(--s3);
+  max-width: 18ch;
+  text-wrap: balance;
+}
+.intro h1 em { font-style: normal; color: var(--accent-text); }
+.addr { margin: 0; color: var(--muted); }
+.addr a { text-underline-offset: 3px; text-decoration-color: var(--line); }
+.addr a:hover { text-decoration-color: currentColor; }
+
+/* ---------- Menu ---------- */
+.section { padding-top: var(--s7); scroll-margin-top: calc(var(--head-h) + var(--bar-h) + var(--s2)); }
+.section h2 {
+  font: 600 var(--fs-xl)/1.2 var(--f-head);
+  margin: 0 0 var(--s2);
+}
+.cat-note { margin: 0 0 var(--s4); font-size: var(--fs-s); color: var(--muted); max-width: 60ch; }
+.section h2 + .items { margin-top: var(--s4); }
+.items { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+@media (min-width: 720px) { .items { grid-template-columns: 1fr 1fr; gap: var(--s3); } }
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: var(--s3);
+  padding: var(--s4);
+  background: var(--surface);
+  border-radius: var(--r-m);
+}
+.item-head { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: var(--s2); }
+.item-body { min-width: 0; }
+.item:not(.has-img) .item-body { grid-column: 1 / -1; }
+.item img {
+  grid-column: 2; grid-row: 2;
+  align-self: end;
+  width: 112px; height: 75px;
+  object-fit: contain;
+  margin: var(--s1) calc(var(--s2) * -1) calc(var(--s2) * -1) 0;
+}
+@media (min-width: 720px) { .item img { width: 144px; height: 96px; } }
+.item-name { font: 600 var(--fs-l)/1.3 var(--f-body); margin: 0; }
+.lead { flex: 1 1 12px; min-width: 12px; border-bottom: 2px dotted var(--line); margin-bottom: .45em; }
+.price {
+  flex: none;
+  font: 600 var(--fs-l)/1.3 var(--f-body);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+  white-space: nowrap;
+}
+.desc { margin: var(--s1) 0 0; color: var(--muted); }
+.meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2);
+  margin-top: var(--s2);
+  font-size: var(--fs-s); line-height: 1;
+  color: var(--muted);
+}
+.meta .no, .meta .amt { font-variant-numeric: tabular-nums; }
+.meta .amt { color: var(--text); }
+.tag { padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; }
+.tag-spicy { color: var(--accent-text); border-color: currentColor; }
+
+/* ---------- Footer ---------- */
+.foot { margin-top: var(--s8); padding: var(--s6) 0 var(--s7); border-top: 1px solid var(--line); }
+.order { font: 600 var(--fs-l)/1.35 var(--f-body); margin: 0 0 var(--s5); max-width: 28ch; }
+.contacts { display: grid; gap: var(--s4); margin: 0 0 var(--s5); }
+.contacts dt { font-size: var(--fs-s); color: var(--muted); margin-bottom: 2px; }
+.contacts dd { margin: 0; font-size: var(--fs-l); }
+.contacts a { text-decoration: none; }
+.contacts a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.social { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s6); }
+.fine { margin: 0 0 var(--s2); font-size: var(--fs-s); color: var(--muted); max-width: 60ch; }
+.copy { margin: var(--s4) 0 0; font-size: var(--fs-s); color: var(--muted); }
+@media (min-width: 720px) {
+  .contacts { grid-template-columns: repeat(4, auto); justify-content: start; column-gap: var(--s7); }
+  .intro { padding-top: var(--s7); }
+  .intro h1 { font-size: 2rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="wrap">
+    <header class="head">
+      <a class="logo" href="#"><img src="img/logo.webp" alt="YAPPI" width="59" height="44"></a>
+      <div class="lang" role="group" aria-label="Язык / Keel">
+        <button type="button" data-lang="ru" aria-pressed="true">RU</button>
+        <button type="button" data-lang="et" aria-pressed="false">ET</button>
+      </div>
+      <a class="btn btn-call" href="tel:+37256461400">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+        <span data-i18n="call">Позвонить</span>
+      </a>
+    </header>
+    <nav class="chips" id="chips" aria-label="Категории"></nav>
+  </div>
+</div>
+
+<main class="wrap">
+  <section class="intro">
+    <h1 data-i18n-html="tagline">Самые большие <em>роллы</em> в&nbsp;городе</h1>
+    <p class="addr">
+      <a href="https://maps.google.com/?q=Narva+mnt+8,+J%C3%B5hvi" target="_blank" rel="noopener">Narva mnt 8, Jõhvi</a>
+      (Jewe keskus)
+    </p>
+  </section>
+
+  <div id="menu"></div>
+  <noscript><p>Меню не загрузилось. Позвоните нам: <a href="tel:+37256461400">+372 5646 1400</a>.</p></noscript>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <p class="order" data-i18n="order">Заказ по телефону или в приложении YAPPI</p>
+    <dl class="contacts">
+      <div><dt data-i18n="phone">Телефон</dt><dd><a href="tel:+37256461400">+372 5646 1400</a></dd></div>
+      <div><dt>E-mail</dt><dd><a href="mailto:yappisushi@gmail.com">yappisushi@gmail.com</a></dd></div>
+      <!-- CHECK: часы работы -->
+      <div><dt data-i18n="hours">Часы работы</dt><dd>11:00–21:00</dd></div>
+      <div><dt data-i18n="address">Адрес</dt><dd>Narva mnt 8, Jõhvi</dd></div>
+    </dl>
+    <div class="social">
+      <a class="btn btn-line" href="https://www.facebook.com/Yappisushi/" target="_blank" rel="noopener">Facebook</a>
+      <a class="btn btn-line" href="https://www.instagram.com/yappisushi/" target="_blank" rel="noopener">Instagram</a>
+    </div>
+    <p class="fine" data-i18n="allergens">Информацию об аллергенах, пожалуйста, уточняйте у персонала.</p>
+    <p class="fine" data-i18n="photos">Блюда могут выглядеть иначе, чем на фото.</p>
+    <!-- TODO: юридическое название и регистрационный код фирмы, напр. «YAPPI OÜ, reg. 12345678» -->
+    <p class="copy">© <span id="year">2026</span> YAPPI Sushi</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var UI = {
+    ru: {
+      call: "Позвонить",
+      tagline: "Самые большие <em>роллы</em> в&nbsp;городе",
+      order: "Заказ по телефону или в приложении YAPPI",
+      phone: "Телефон", hours: "Часы работы", address: "Адрес",
+      allergens: "Информацию об аллергенах, пожалуйста, уточняйте у персонала.",
+      photos: "Блюда могут выглядеть иначе, чем на фото.",
+      nav: "Категории",
+      pcs: "шт", cm: "см",
+      spicy: "острый",
+      title: "YAPPI Sushi, Jõhvi. Меню: роллы, сеты, пицца, вок"
+    },
+    et: {
+      call: "Helista",
+      tagline: "Linna kõige suuremad <em>rullid</em>",
+      order: "Telli telefoni teel või YAPPI äpis",
+      phone: "Telefon", hours: "Lahtiolekuajad", address: "Aadress",
+      allergens: "Teavet allergeenide kohta küsige palun teenindajalt.",
+      photos: "Toidu tegelik välimus võib erineda fotodel olevast.",
+      nav: "Kategooriad",
+      pcs: "tk", cm: "cm",
+      spicy: "vürtsikas",
+      title: "YAPPI Sushi, Jõhvi. Menüü: rullid, setid, pizza, wok"
+    }
+  };
+
+  var menuEl = document.getElementById("menu");
+  var chipsEl = document.getElementById("chips");
+  var lang = "ru";
+
+  // Language: ?lang=et in the link wins, then the last choice on this device
+  try {
+    var q = new URLSearchParams(location.search).get("lang");
+    var saved = localStorage.getItem("yappi-lang");
+    if (UI[q]) lang = q; else if (UI[saved]) lang = saved;
+  } catch (e) {}
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+  function tr(v) { return v && typeof v === "object" ? (v[lang] || v.ru || "") : (v || ""); }
+  function num(n) { return n.toFixed(2).replace(".", ","); }
+  function price(p) { return [].concat(p).map(num).join(" / ") + " €"; }
+
+  function itemHTML(it, t) {
+    var name = tr(it.name);
+    var desc = tr(it.desc);
+    var meta = [];
+    if (it.no) meta.push('<span class="no">#' + esc(it.no) + "</span>");
+    var amt = [];
+    if (it.pcs) amt.push(it.pcs + " " + t.pcs);
+    if (it.size) amt.push(it.size + " " + t.cm);
+    if (amt.length) meta.push('<span class="amt">' + amt.join(" · ") + "</span>");
+    (it.tags || []).forEach(function (k) {
+      meta.push('<span class="tag tag-' + k + '">' + esc(t[k] || k) + "</span>");
+    });
+
+    return '<li class="item' + (it.image ? " has-img" : "") + '">' +
+      '<div class="item-head"><h3 class="item-name">' + esc(name) + '</h3><span class="lead" aria-hidden="true"></span><span class="price">' + price(it.price) + "</span></div>" +
+      '<div class="item-body">' +
+        (desc ? '<p class="desc">' + esc(desc) + "</p>" : "") +
+        (meta.length ? '<div class="meta">' + meta.join("") + "</div>" : "") +
+      "</div>" +
+      (it.image ? '<img src="' + esc(it.image) + '" alt="' + esc(name) + '" width="360" height="240" loading="lazy" decoding="async">' : "") +
+      "</li>";
+  }
+
+  function render() {
+    var t = UI[lang];
+    document.documentElement.lang = lang;
+    document.title = t.title;
+    chipsEl.setAttribute("aria-label", t.nav);
+
+    document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = t[el.dataset.i18n]; });
+    document.querySelectorAll("[data-i18n-html]").forEach(function (el) { el.innerHTML = t[el.dataset.i18nHtml]; });
+    document.querySelectorAll(".lang button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+    });
+
+    var chips = "", sections = "";
+    CATEGORIES.forEach(function (c) {
+      var items = MENU.filter(function (it) { return it.cat === c.id; });
+      if (!items.length) return;
+      var label = esc(c[lang] || c.ru);
+      var note = c.note ? tr(c.note) : "";
+      chips += '<a href="#' + c.id + '" data-cat="' + c.id + '">' + label + "</a>";
+      sections += '<section class="section" id="' + c.id + '" aria-labelledby="h-' + c.id + '">' +
+        '<h2 id="h-' + c.id + '">' + label + "</h2>" +
+        (note ? '<p class="cat-note">' + esc(note) + "</p>" : "") +
+        '<ul class="items">' + items.map(function (it) { return itemHTML(it, t); }).join("") + "</ul></section>";
+    });
+    chipsEl.innerHTML = chips;
+    menuEl.innerHTML = sections;
+    watchSections();
+  }
+
+  // Highlight the category currently on screen and keep its chip visible
+  var observer;
+  function setActive(id) {
+    var active;
+    chipsEl.querySelectorAll("a").forEach(function (a) {
+      var on = a.dataset.cat === id;
+      if (on) { a.setAttribute("aria-current", "true"); active = a; } else a.removeAttribute("aria-current");
+    });
+    if (active) {
+      var left = active.offsetLeft - (chipsEl.clientWidth - active.offsetWidth) / 2;
+      chipsEl.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+    }
+  }
+  function watchSections() {
+    if (!("IntersectionObserver" in window)) return;
+    if (observer) observer.disconnect();
+    observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) setActive(e.target.id); });
+    }, { rootMargin: "-120px 0px -65% 0px" });
+    menuEl.querySelectorAll(".section").forEach(function (s) { observer.observe(s); });
+  }
+
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (b.dataset.lang === lang) return;
+      lang = b.dataset.lang;
+      try { localStorage.setItem("yappi-lang", lang); } catch (e) {}
+      render();
+    });
+  });
+
+  document.getElementById("year").textContent = new Date().getFullYear();
+  render();
+
+  // Sections are built by JS, so a shared link like …#sets needs a manual jump
+  if (location.hash) {
+    var target = document.getElementById(location.hash.slice(1));
+    if (target) target.scrollIntoView();
+  }
+})();
+</script>
+</body>
+</html>
