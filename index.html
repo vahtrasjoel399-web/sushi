@@ -284,20 +284,26 @@ const MENU = [
 ];
 </script>
 
-<title>YAPPI Sushi, Jõhvi. Меню: роллы, сеты, пицца, вок</title>
-<meta name="description" content="Меню YAPPI Sushi в Йыхви: маки, запечённые и темпура-роллы, сеты, ShawRoll, закуски, супы, вок, паста и пицца. Narva mnt 8, Jewe keskus. Заказ по телефону +372 5646 1400.">
+<title>YAPPI Sushi – меню, Jõhvi</title>
+<meta name="description" content="Меню YAPPI Sushi с ценами: роллы, сеты, ShawRoll, закуски, салаты и супы, вок, паста, пицца, соусы. Narva mnt 8, Jõhvi (Jewe keskus). Телефон +372 5646 1400.">
 <meta name="theme-color" content="#0b0b0b">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23d01d21'/%3E%3Cpath d='M9 8l7 9 7-9M16 17v8' stroke='%23ffffff' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+
+<!-- Icons (made from the YAPPI logo) -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
 <link rel="preload" as="image" href="img/logo.webp">
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="YAPPI Sushi">
-<meta property="og:title" content="YAPPI Sushi, Jõhvi. Меню">
-<meta property="og:description" content="Самые большие роллы в городе. Narva mnt 8, Jõhvi (Jewe keskus). Заказ по телефону +372 5646 1400.">
+<meta property="og:title" content="YAPPI Sushi – меню, Jõhvi">
+<meta property="og:description" content="Меню с ценами: роллы, сеты, закуски, супы, вок, паста, пицца. Narva mnt 8, Jõhvi (Jewe keskus). Телефон +372 5646 1400.">
 <meta property="og:locale" content="ru_RU">
 <meta property="og:locale:alternate" content="et_EE">
-<!-- Адрес сайта на Vercel. Если появится свой домен, заменить в трёх местах ниже и в JSON-LD -->
+<!-- Адрес сайта на Vercel. Если появится свой домен, заменить здесь и в JSON-LD -->
 <meta property="og:url" content="https://yappi-sushi.vercel.app/">
 <meta property="og:image" content="https://yappi-sushi.vercel.app/og.jpg">
 <meta property="og:image:width" content="1200">
@@ -341,7 +347,7 @@ const MENU = [
    Direction
    Reference:  YAPPI's own printed menu (dish cutouts on dark, price first)
                and lit menu boards in a mall food court
-   Mood:       direct, generous, appetite-first. "Big rolls, here's the price."
+   Mood:       direct, appetite-first. Just the menu and the price.
    Palette:    brand colours only: black #0B0B0B (cards #161616), white #F8F8F8,
                red #D01D21 (buttons) / #F04E4C (red text on black)
    Type:       Unbounded 600 (headings) + Golos Text 400/600 (everything
@@ -381,11 +387,13 @@ const MENU = [
   --bar-h: 52px;
   --ease: cubic-bezier(.2,.7,.2,1);
   --t-fast: 150ms;
+  --t-menu: 250ms;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+html.menu-open { overflow: hidden; }   /* scroll lock while the mobile menu is open */
 
 body {
   margin: 0;
@@ -397,16 +405,24 @@ body {
 a { color: inherit; }
 img { display: block; max-width: 100%; }
 .wrap { max-width: 1040px; margin: 0 auto; padding: 0 var(--s4); }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 
 /* ---------- Top: header + category bar, sticky as one block ---------- */
 .top {
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: 0; z-index: 30;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
 }
-.head { display: flex; align-items: center; gap: var(--s3); height: var(--head-h); }
-.logo { margin-right: auto; display: block; }
+.head {
+  position: relative; z-index: 3;          /* above the sliding panel */
+  display: flex; align-items: center; gap: var(--s2);
+  height: var(--head-h);
+  background: var(--bg);
+}
+.logo { margin-right: auto; display: block; flex: none; }
 .logo img { height: 44px; width: auto; }
+
 .lang { display: flex; border: 1px solid var(--line); border-radius: var(--r-s); overflow: hidden; }
 .lang button {
   font: 600 var(--fs-s)/1 var(--f-body);
@@ -416,14 +432,14 @@ img { display: block; max-width: 100%; }
   cursor: pointer;
 }
 .lang button[aria-pressed="true"] { color: var(--text); background: var(--chip); }
-.lang button:focus-visible, .chips a:focus-visible, .btn:focus-visible, .logo:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.head .lang { display: none; }             /* phones: the switcher lives in the menu panel */
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
   min-height: 44px; padding: 0 var(--s4);
   border-radius: var(--r-s);
   font: 600 var(--fs-m)/1 var(--f-body);
-  text-decoration: none;
+  text-decoration: none; white-space: nowrap;
   transition: background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
 }
 .btn svg { width: 18px; height: 18px; flex: none; }
@@ -431,13 +447,39 @@ img { display: block; max-width: 100%; }
 .btn-call:hover, .btn-call:active { background: var(--accent-strong); }
 .btn-line { border: 1px solid var(--line); color: var(--text); }
 .btn-line:hover { border-color: var(--muted); }
+.head .btn-call { padding: 0 var(--s3); }
 
+/* Burger: three lines that turn into an X */
+.burger {
+  flex: none;
+  width: 48px; height: 48px; margin-right: calc(var(--s2) * -1);
+  display: grid; place-items: center;
+  background: none; border: 0; border-radius: var(--r-s);
+  color: var(--text); cursor: pointer;
+}
+.burger-box { position: relative; width: 22px; height: 16px; }
+.burger-box span {
+  position: absolute; left: 0; width: 100%; height: 2px; border-radius: 2px;
+  background: currentColor;
+  transition: transform var(--t-menu) var(--ease), opacity var(--t-menu) var(--ease);
+}
+.burger-box span:nth-child(1) { top: 0; }
+.burger-box span:nth-child(2) { top: 7px; }
+.burger-box span:nth-child(3) { top: 14px; }
+.burger[aria-expanded="true"] .burger-box span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.burger[aria-expanded="true"] .burger-box span:nth-child(2) { opacity: 0; }
+.burger[aria-expanded="true"] .burger-box span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Category bar */
 .chips {
+  position: relative; z-index: 1;
   display: flex; gap: var(--s2);
   height: var(--bar-h); align-items: center;
   overflow-x: auto; scrollbar-width: none;
   margin: 0 calc(var(--s4) * -1); padding: 0 var(--s4) var(--s1);
   overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--s4);
+  -webkit-overflow-scrolling: touch;
 }
 .chips::-webkit-scrollbar { display: none; }
 .chips a {
@@ -454,21 +496,56 @@ img { display: block; max-width: 100%; }
 .chips a:hover { color: var(--text); }
 .chips a[aria-current="true"] { background: var(--accent); color: var(--on-accent); }
 
-/* ---------- Intro ---------- */
-.intro { padding: var(--s6) 0 var(--s2); }
-.intro h1 {
-  font: 600 var(--fs-xxl)/1.15 var(--f-head);
-  margin: 0 0 var(--s3);
-  max-width: 18ch;
-  text-wrap: balance;
+/* Mobile menu panel: slides down under the header */
+.menu-backdrop {
+  position: fixed; inset: var(--head-h) 0 0 0; z-index: 1;
+  background: rgb(0 0 0 / .6);
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--t-menu) var(--ease), visibility 0s linear var(--t-menu);
+  touch-action: none;
 }
-.intro h1 em { font-style: normal; color: var(--accent-text); }
-.addr { margin: 0; color: var(--muted); }
-.addr a { text-underline-offset: 3px; text-decoration-color: var(--line); }
-.addr a:hover { text-decoration-color: currentColor; }
+.menu-panel {
+  position: fixed; left: 0; right: 0; top: var(--head-h); z-index: 2;
+  max-height: calc(100vh - var(--head-h));
+  max-height: calc(100dvh - var(--head-h));
+  overflow-y: auto; overscroll-behavior: contain;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  padding: var(--s2) var(--s4) var(--s5);
+  transform: translateY(-12px); opacity: 0; visibility: hidden;
+  transition: transform var(--t-menu) var(--ease), opacity var(--t-menu) var(--ease), visibility 0s linear var(--t-menu);
+}
+.menu-open .menu-backdrop { opacity: 1; visibility: visible; transition-delay: 0s; }
+.menu-open .menu-panel { transform: none; opacity: 1; visibility: visible; transition-delay: 0s; }
+.panel-links { list-style: none; margin: 0 0 var(--s5); padding: 0; }
+.panel-links a {
+  display: flex; align-items: center;
+  min-height: 52px; padding: var(--s2) 0;
+  border-bottom: 1px solid var(--line);
+  font: 600 var(--fs-l)/1.25 var(--f-body);
+  text-decoration: none;
+}
+.panel-links a[aria-current="true"] { color: var(--accent-text); }
+.panel-actions { display: grid; gap: var(--s3); }
+.panel-actions .btn { min-height: 52px; font-size: var(--fs-l); }
+.panel-actions .lang button { flex: 1; height: 48px; font-size: var(--fs-m); }
+
+@media (prefers-reduced-motion: reduce) {
+  .burger-box span, .menu-panel, .menu-backdrop { transition-duration: 0s; }
+}
+
+@media (min-width: 768px) {
+  .burger, .menu-panel, .menu-backdrop { display: none; }
+  .head { gap: var(--s3); }
+  .head .lang { display: flex; }
+  .head .btn-call { padding: 0 var(--s4); }
+}
 
 /* ---------- Menu ---------- */
-.section { padding-top: var(--s7); scroll-margin-top: calc(var(--head-h) + var(--bar-h) + var(--s2)); }
+/* jump targets land with the heading ~24px below the sticky header */
+.section { padding-top: var(--s7); scroll-margin-top: calc(var(--head-h) + var(--bar-h) - var(--s5)); }
+#menu > .section:first-child { padding-top: var(--s5); scroll-margin-top: calc(var(--head-h) + var(--bar-h)); }
+.section h2:focus { outline: none; }
 .section h2 {
   font: 600 var(--fs-xl)/1.2 var(--f-head);
   margin: 0 0 var(--s2);
@@ -480,24 +557,25 @@ img { display: block; max-width: 100%; }
 
 .item {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   column-gap: var(--s3);
   padding: var(--s4);
   background: var(--surface);
   border-radius: var(--r-m);
 }
-.item-head { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: var(--s2); }
+.item-head { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: var(--s2); min-width: 0; }
 .item-body { min-width: 0; }
 .item:not(.has-img) .item-body { grid-column: 1 / -1; }
 .item img {
   grid-column: 2; grid-row: 2;
   align-self: end;
-  width: 112px; height: 75px;
+  width: 112px; height: auto; aspect-ratio: 3 / 2;
   object-fit: contain;
   margin: var(--s1) calc(var(--s2) * -1) calc(var(--s2) * -1) 0;
 }
-@media (min-width: 720px) { .item img { width: 144px; height: 96px; } }
-.item-name { font: 600 var(--fs-l)/1.3 var(--f-body); margin: 0; }
+@media (max-width: 360px) { .item img { width: 88px; } .item { padding: var(--s3); } }
+@media (min-width: 720px) { .item img { width: 144px; } }
+.item-name { font: 600 var(--fs-l)/1.3 var(--f-body); margin: 0; min-width: 0; overflow-wrap: break-word; hyphens: auto; }
 .lead { flex: 1 1 12px; min-width: 12px; border-bottom: 2px dotted var(--line); margin-bottom: .45em; }
 .price {
   flex: none;
@@ -506,7 +584,7 @@ img { display: block; max-width: 100%; }
   color: var(--accent-text);
   white-space: nowrap;
 }
-.desc { margin: var(--s1) 0 0; color: var(--muted); }
+.desc { margin: var(--s1) 0 0; color: var(--muted); overflow-wrap: break-word; }
 .meta {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2);
   margin-top: var(--s2);
@@ -523,7 +601,7 @@ img { display: block; max-width: 100%; }
 .order { font: 600 var(--fs-l)/1.35 var(--f-body); margin: 0 0 var(--s5); max-width: 28ch; }
 .contacts { display: grid; gap: var(--s4); margin: 0 0 var(--s5); }
 .contacts dt { font-size: var(--fs-s); color: var(--muted); margin-bottom: 2px; }
-.contacts dd { margin: 0; font-size: var(--fs-l); }
+.contacts dd { margin: 0; font-size: var(--fs-l); overflow-wrap: anywhere; }
 .contacts a { text-decoration: none; }
 .contacts a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .social { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s6); }
@@ -531,8 +609,6 @@ img { display: block; max-width: 100%; }
 .copy { margin: var(--s4) 0 0; font-size: var(--fs-s); color: var(--muted); }
 @media (min-width: 720px) {
   .contacts { grid-template-columns: repeat(4, auto); justify-content: start; column-gap: var(--s7); }
-  .intro { padding-top: var(--s7); }
-  .intro h1 { font-size: 2rem; }
 }
 </style>
 </head>
@@ -541,7 +617,7 @@ img { display: block; max-width: 100%; }
 <div class="top">
   <div class="wrap">
     <header class="head">
-      <a class="logo" href="#"><img src="img/logo.webp" alt="YAPPI" width="59" height="44"></a>
+      <a class="logo" href="#"><img src="img/logo.webp" alt="YAPPI Sushi" width="59" height="44"></a>
       <div class="lang" role="group" aria-label="Язык / Keel">
         <button type="button" data-lang="ru" aria-pressed="true">RU</button>
         <button type="button" data-lang="et" aria-pressed="false">ET</button>
@@ -550,25 +626,37 @@ img { display: block; max-width: 100%; }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
         <span data-i18n="call">Позвонить</span>
       </a>
+      <button class="burger" id="burger" type="button" aria-label="Открыть меню" aria-expanded="false" aria-controls="menu-panel">
+        <span class="burger-box" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
     </header>
     <nav class="chips" id="chips" aria-label="Категории"></nav>
   </div>
+  <div class="menu-backdrop" id="menu-backdrop"></div>
+  <div class="menu-panel" id="menu-panel">
+    <nav aria-label="Категории">
+      <ul class="panel-links" id="panel-links"></ul>
+    </nav>
+    <div class="panel-actions">
+      <a class="btn btn-call" href="tel:+37256461400">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>
+        <span data-i18n="call">Позвонить</span> +372 5646 1400
+      </a>
+      <div class="lang" role="group" aria-label="Язык / Keel">
+        <button type="button" data-lang="ru" aria-pressed="true">RU</button>
+        <button type="button" data-lang="et" aria-pressed="false">ET</button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<main class="wrap">
-  <section class="intro">
-    <h1 data-i18n-html="tagline">Самые большие <em>роллы</em> в&nbsp;городе</h1>
-    <p class="addr">
-      <a href="https://maps.google.com/?q=Narva+mnt+8,+J%C3%B5hvi" target="_blank" rel="noopener">Narva mnt 8, Jõhvi</a>
-      (Jewe keskus)
-    </p>
-  </section>
-
+<main class="wrap" id="main">
+  <h1 class="sr" data-i18n="h1">YAPPI Sushi – меню</h1>
   <div id="menu"></div>
   <noscript><p>Меню не загрузилось. Позвоните нам: <a href="tel:+37256461400">+372 5646 1400</a>.</p></noscript>
 </main>
 
-<footer class="foot">
+<footer class="foot" id="foot">
   <div class="wrap">
     <p class="order" data-i18n="order">Заказ по телефону или в приложении YAPPI</p>
     <dl class="contacts">
@@ -576,7 +664,7 @@ img { display: block; max-width: 100%; }
       <div><dt>E-mail</dt><dd><a href="mailto:yappisushi@gmail.com">yappisushi@gmail.com</a></dd></div>
       <!-- CHECK: часы работы -->
       <div><dt data-i18n="hours">Часы работы</dt><dd>11:00–21:00</dd></div>
-      <div><dt data-i18n="address">Адрес</dt><dd>Narva mnt 8, Jõhvi</dd></div>
+      <div><dt data-i18n="address">Адрес</dt><dd><a href="https://maps.google.com/?q=Narva+mnt+8,+J%C3%B5hvi" target="_blank" rel="noopener">Narva mnt 8, Jõhvi</a> (Jewe keskus)</dd></div>
     </dl>
     <div class="social">
       <a class="btn btn-line" href="https://www.facebook.com/Yappisushi/" target="_blank" rel="noopener">Facebook</a>
@@ -594,32 +682,38 @@ img { display: block; max-width: 100%; }
   var UI = {
     ru: {
       call: "Позвонить",
-      tagline: "Самые большие <em>роллы</em> в&nbsp;городе",
+      h1: "YAPPI Sushi – меню",
       order: "Заказ по телефону или в приложении YAPPI",
       phone: "Телефон", hours: "Часы работы", address: "Адрес",
       allergens: "Информацию об аллергенах, пожалуйста, уточняйте у персонала.",
       photos: "Блюда могут выглядеть иначе, чем на фото.",
-      nav: "Категории",
+      nav: "Категории", open: "Открыть меню", close: "Закрыть меню",
       pcs: "шт", cm: "см",
       spicy: "острый",
-      title: "YAPPI Sushi, Jõhvi. Меню: роллы, сеты, пицца, вок"
+      title: "YAPPI Sushi – меню, Jõhvi"
     },
     et: {
       call: "Helista",
-      tagline: "Linna kõige suuremad <em>rullid</em>",
+      h1: "YAPPI Sushi – menüü",
       order: "Telli telefoni teel või YAPPI äpis",
       phone: "Telefon", hours: "Lahtiolekuajad", address: "Aadress",
       allergens: "Teavet allergeenide kohta küsige palun teenindajalt.",
       photos: "Toidu tegelik välimus võib erineda fotodel olevast.",
-      nav: "Kategooriad",
+      nav: "Kategooriad", open: "Ava menüü", close: "Sulge menüü",
       pcs: "tk", cm: "cm",
       spicy: "vürtsikas",
-      title: "YAPPI Sushi, Jõhvi. Menüü: rullid, setid, pizza, wok"
+      title: "YAPPI Sushi – menüü, Jõhvi"
     }
   };
 
+  var root = document.documentElement;
   var menuEl = document.getElementById("menu");
   var chipsEl = document.getElementById("chips");
+  var panelLinks = document.getElementById("panel-links");
+  var burger = document.getElementById("burger");
+  var panel = document.getElementById("menu-panel");
+  var backdrop = document.getElementById("menu-backdrop");
+  var topEl = document.querySelector(".top");
   var lang = "ru";
 
   // Language: ?lang=et in the link wins, then the last choice on this device
@@ -637,6 +731,7 @@ img { display: block; max-width: 100%; }
   function tr(v) { return v && typeof v === "object" ? (v[lang] || v.ru || "") : (v || ""); }
   function num(n) { return n.toFixed(2).replace(".", ","); }
   function price(p) { return [].concat(p).map(num).join(" / ") + " €"; }
+  function reduceMotion() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
 
   function itemHTML(it, t) {
     var name = tr(it.name);
@@ -661,57 +756,112 @@ img { display: block; max-width: 100%; }
       "</li>";
   }
 
+  var sections = [];
   function render() {
     var t = UI[lang];
-    document.documentElement.lang = lang;
+    root.lang = lang;
     document.title = t.title;
     chipsEl.setAttribute("aria-label", t.nav);
+    burger.setAttribute("aria-label", isOpen() ? t.close : t.open);
 
     document.querySelectorAll("[data-i18n]").forEach(function (el) { el.textContent = t[el.dataset.i18n]; });
-    document.querySelectorAll("[data-i18n-html]").forEach(function (el) { el.innerHTML = t[el.dataset.i18nHtml]; });
     document.querySelectorAll(".lang button").forEach(function (b) {
       b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
     });
 
-    var chips = "", sections = "";
+    var chips = "", links = "", html = "";
     CATEGORIES.forEach(function (c) {
       var items = MENU.filter(function (it) { return it.cat === c.id; });
       if (!items.length) return;
       var label = esc(c[lang] || c.ru);
       var note = c.note ? tr(c.note) : "";
       chips += '<a href="#' + c.id + '" data-cat="' + c.id + '">' + label + "</a>";
-      sections += '<section class="section" id="' + c.id + '" aria-labelledby="h-' + c.id + '">' +
+      links += '<li><a href="#' + c.id + '" data-cat="' + c.id + '">' + label + "</a></li>";
+      html += '<section class="section" id="' + c.id + '" aria-labelledby="h-' + c.id + '">' +
         '<h2 id="h-' + c.id + '">' + label + "</h2>" +
         (note ? '<p class="cat-note">' + esc(note) + "</p>" : "") +
         '<ul class="items">' + items.map(function (it) { return itemHTML(it, t); }).join("") + "</ul></section>";
     });
     chipsEl.innerHTML = chips;
-    menuEl.innerHTML = sections;
-    watchSections();
+    panelLinks.innerHTML = links;
+    menuEl.innerHTML = html;
+    sections = [].slice.call(menuEl.querySelectorAll(".section"));
+    activeId = null;
+    updateActive();
   }
 
-  // Highlight the category currently on screen and keep its chip visible
-  var observer;
+  // ---------- Active category while scrolling ----------
+  var activeId = null, ticking = false;
+  function updateActive() {
+    ticking = false;
+    if (!sections.length) return;
+    var line = topEl.offsetHeight + 24;
+    var current = sections[0];
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].getBoundingClientRect().top <= line) current = sections[i];
+    }
+    if (window.innerHeight + window.scrollY >= root.scrollHeight - 4) current = sections[sections.length - 1];
+    if (current.id !== activeId) setActive(current.id);
+  }
   function setActive(id) {
-    var active;
-    chipsEl.querySelectorAll("a").forEach(function (a) {
+    activeId = id;
+    var chip;
+    document.querySelectorAll("#chips a, #panel-links a").forEach(function (a) {
       var on = a.dataset.cat === id;
-      if (on) { a.setAttribute("aria-current", "true"); active = a; } else a.removeAttribute("aria-current");
+      if (on) a.setAttribute("aria-current", "true"); else a.removeAttribute("aria-current");
+      if (on && a.parentNode === chipsEl) chip = a;
     });
-    if (active) {
-      var left = active.offsetLeft - (chipsEl.clientWidth - active.offsetWidth) / 2;
-      chipsEl.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+    if (chip) {
+      var left = chip.offsetLeft - (chipsEl.clientWidth - chip.offsetWidth) / 2;
+      chipsEl.scrollTo({ left: Math.max(0, left), behavior: reduceMotion() ? "auto" : "smooth" });
     }
   }
-  function watchSections() {
-    if (!("IntersectionObserver" in window)) return;
-    if (observer) observer.disconnect();
-    observer = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) { if (e.isIntersecting) setActive(e.target.id); });
-    }, { rootMargin: "-120px 0px -65% 0px" });
-    menuEl.querySelectorAll(".section").forEach(function (s) { observer.observe(s); });
-  }
+  window.addEventListener("scroll", function () {
+    if (!ticking) { ticking = true; requestAnimationFrame(updateActive); }
+  }, { passive: true });
+  window.addEventListener("resize", updateActive);
 
+  // ---------- Mobile menu ----------
+  var desktop = window.matchMedia("(min-width: 768px)");
+  var behind = [document.getElementById("main"), document.getElementById("foot"), chipsEl, document.querySelector(".logo")];
+  function isOpen() { return root.classList.contains("menu-open"); }
+  function openMenu() {
+    root.classList.add("menu-open");
+    burger.setAttribute("aria-expanded", "true");
+    burger.setAttribute("aria-label", UI[lang].close);
+    behind.forEach(function (el) { el.inert = true; });
+    var first = panel.querySelector('a[aria-current="true"]') || panel.querySelector("a");
+    if (first) setTimeout(function () { first.focus({ preventScroll: true }); }, 50);
+  }
+  function closeMenu(returnFocus) {
+    if (!isOpen()) return;
+    root.classList.remove("menu-open");
+    burger.setAttribute("aria-expanded", "false");
+    burger.setAttribute("aria-label", UI[lang].open);
+    behind.forEach(function (el) { el.inert = false; });
+    if (returnFocus) burger.focus();
+  }
+  burger.addEventListener("click", function () { isOpen() ? closeMenu(true) : openMenu(); });
+  backdrop.addEventListener("click", function () { closeMenu(true); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isOpen()) closeMenu(true); });
+  desktop.addEventListener("change", function (e) { if (e.matches) closeMenu(false); });
+
+  // Category links in the panel: close first, then jump (the page is unlocked by then)
+  panelLinks.addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-cat]");
+    if (!a) return;
+    e.preventDefault();
+    closeMenu(false);
+    var target = document.getElementById(a.dataset.cat);
+    if (!target) return;
+    history.replaceState(null, "", "#" + a.dataset.cat);
+    target.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
+    var h = target.querySelector("h2");
+    if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+  });
+  panel.querySelector(".btn-call").addEventListener("click", function () { closeMenu(false); });
+
+  // ---------- Language ----------
   document.querySelectorAll(".lang button").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.dataset.lang === lang) return;
