@@ -388,11 +388,13 @@ const MENU = [
   --ease: cubic-bezier(.2,.7,.2,1);
   --t-fast: 150ms;
   --t-menu: 250ms;
+  --ease-out: cubic-bezier(.22,1,.36,1);   /* nav indicator, arrival */
+  --t-slide: 380ms;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+/* smooth scrolling to categories is done in JS (eased, time-limited), so no CSS scroll-behavior here */
 html.menu-open { overflow: hidden; }   /* scroll lock while the mobile menu is open */
 
 body {
@@ -483,6 +485,7 @@ img { display: block; max-width: 100%; }
 }
 .chips::-webkit-scrollbar { display: none; }
 .chips a {
+  position: relative; z-index: 1;
   flex: none;
   display: inline-flex; align-items: center;
   height: 36px; padding: 0 var(--s3);
@@ -491,10 +494,28 @@ img { display: block; max-width: 100%; }
   color: var(--muted);
   font: 600 var(--fs-s)/1 var(--f-body);
   white-space: nowrap; text-decoration: none;
-  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 200ms var(--ease), color 200ms var(--ease), transform 260ms var(--ease-out);
 }
 .chips a:hover { color: var(--text); }
+.chips a:active { transform: scale(.95); }
 .chips a[aria-current="true"] { background: var(--accent); color: var(--on-accent); }
+/* Red pill that slides to the active category */
+.chips.has-ind a[aria-current="true"] { background: transparent; }
+.chip-ind {
+  position: absolute; left: 0; top: 0; z-index: 0;
+  border-radius: var(--r-s);
+  background: var(--accent);
+  pointer-events: none;
+  transition: transform var(--t-slide) var(--ease-out), width var(--t-slide) var(--ease-out), opacity 150ms var(--ease);
+}
+.chips.no-anim .chip-ind, .chips.no-anim a { transition: none; }
+/* macOS Dock-style magnification on hover (desktop only, set from JS).
+   While it runs, the active chip shows its own red background so it can grow with the others. */
+.chips.docking .chip-ind { opacity: 0; }
+.chips.docking a[aria-current="true"] { background: var(--accent); }
+/* transforms are driven every frame from JS (smoothed there), so no CSS transform transition here */
+.chips.docking a { transition: background-color 200ms var(--ease), color 200ms var(--ease); will-change: transform; backface-visibility: hidden; }
 
 /* Mobile menu panel: slides down under the header */
 .menu-backdrop {
@@ -526,12 +547,20 @@ img { display: block; max-width: 100%; }
   text-decoration: none;
 }
 .panel-links a[aria-current="true"] { color: var(--accent-text); }
+/* links drop in one after another when the panel opens */
+.panel-links li { opacity: 0; transform: translateY(-8px); transition: opacity 150ms var(--ease), transform 150ms var(--ease); }
+.menu-open .panel-links li {
+  opacity: 1; transform: none;
+  transition-duration: 320ms;
+  transition-delay: calc(60ms + var(--i, 0) * 30ms);
+}
 .panel-actions { display: grid; gap: var(--s3); }
 .panel-actions .btn { min-height: 52px; font-size: var(--fs-l); }
 .panel-actions .lang button { flex: 1; height: 48px; font-size: var(--fs-m); }
 
 @media (prefers-reduced-motion: reduce) {
-  .burger-box span, .menu-panel, .menu-backdrop { transition-duration: 0s; }
+  .burger-box span, .menu-panel, .menu-backdrop, .chip-ind, .chips a, .panel-links li { transition-duration: 0s !important; transition-delay: 0s !important; }
+  .chips a:active { transform: none; }
 }
 
 @media (min-width: 768px) {
@@ -547,8 +576,31 @@ img { display: block; max-width: 100%; }
 #menu > .section:first-child { padding-top: var(--s5); scroll-margin-top: calc(var(--head-h) + var(--bar-h)); }
 .section h2:focus { outline: none; }
 .section h2 {
+  position: relative;
   font: 600 var(--fs-xl)/1.2 var(--f-head);
   margin: 0 0 var(--s2);
+}
+/* "You arrived": red line under the heading, cards rise in */
+.section h2::after {
+  content: ""; position: absolute; left: 0; bottom: -6px;
+  width: 56px; height: 3px; border-radius: 2px;
+  background: var(--accent);
+  transform: scaleX(0); transform-origin: left; opacity: 0;
+}
+.section.arrive h2::after { animation: yp-line 1600ms var(--ease-out) both; }
+.section.arrive .item { animation: yp-rise 520ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 45ms); }
+@keyframes yp-line {
+  0%   { transform: scaleX(0); opacity: 1; }
+  30%  { transform: scaleX(1); opacity: 1; }
+  75%  { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+@keyframes yp-rise {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .section.arrive h2::after, .section.arrive .item { animation: none; }
 }
 .cat-note { margin: 0 0 var(--s4); font-size: var(--fs-s); color: var(--muted); max-width: 60ch; }
 .section h2 + .items { margin-top: var(--s4); }
@@ -733,7 +785,7 @@ img { display: block; max-width: 100%; }
   function price(p) { return [].concat(p).map(num).join(" / ") + " €"; }
   function reduceMotion() { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
 
-  function itemHTML(it, t) {
+  function itemHTML(it, t, i) {
     var name = tr(it.name);
     var desc = tr(it.desc);
     var meta = [];
@@ -746,7 +798,7 @@ img { display: block; max-width: 100%; }
       meta.push('<span class="tag tag-' + k + '">' + esc(t[k] || k) + "</span>");
     });
 
-    return '<li class="item' + (it.image ? " has-img" : "") + '">' +
+    return '<li class="item' + (it.image ? " has-img" : "") + '" style="--i:' + Math.min(i || 0, 7) + '">' +
       '<div class="item-head"><h3 class="item-name">' + esc(name) + '</h3><span class="lead" aria-hidden="true"></span><span class="price">' + price(it.price) + "</span></div>" +
       '<div class="item-body">' +
         (desc ? '<p class="desc">' + esc(desc) + "</p>" : "") +
@@ -769,32 +821,50 @@ img { display: block; max-width: 100%; }
       b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
     });
 
-    var chips = "", links = "", html = "";
+    var chips = '<span class="chip-ind" id="chip-ind" aria-hidden="true"></span>', links = "", html = "", n = 0;
     CATEGORIES.forEach(function (c) {
       var items = MENU.filter(function (it) { return it.cat === c.id; });
       if (!items.length) return;
       var label = esc(c[lang] || c.ru);
       var note = c.note ? tr(c.note) : "";
       chips += '<a href="#' + c.id + '" data-cat="' + c.id + '">' + label + "</a>";
-      links += '<li><a href="#' + c.id + '" data-cat="' + c.id + '">' + label + "</a></li>";
+      links += '<li style="--i:' + (n++) + '"><a href="#' + c.id + '" data-cat="' + c.id + '">' + label + "</a></li>";
       html += '<section class="section" id="' + c.id + '" aria-labelledby="h-' + c.id + '">' +
         '<h2 id="h-' + c.id + '">' + label + "</h2>" +
         (note ? '<p class="cat-note">' + esc(note) + "</p>" : "") +
-        '<ul class="items">' + items.map(function (it) { return itemHTML(it, t); }).join("") + "</ul></section>";
+        '<ul class="items">' + items.map(function (it, i) { return itemHTML(it, t, i); }).join("") + "</ul></section>";
     });
+    chipsEl.classList.add("has-ind", "no-anim");
     chipsEl.innerHTML = chips;
     panelLinks.innerHTML = links;
     menuEl.innerHTML = html;
     sections = [].slice.call(menuEl.querySelectorAll(".section"));
     activeId = null;
     updateActive();
+    settleChips();
   }
 
+  // ---------- Sliding red pill in the category bar ----------
+  function moveInd(chip) {
+    var ind = document.getElementById("chip-ind");
+    if (!ind || !chip) return;
+    ind.style.width = chip.offsetWidth + "px";
+    ind.style.height = chip.offsetHeight + "px";
+    ind.style.transform = "translate(" + chip.offsetLeft + "px," + chip.offsetTop + "px)";
+  }
+  // place the pill without animating (first paint, language change, resize, fonts loaded)
+  function settleChips() {
+    chipsEl.classList.add("no-anim");
+    moveInd(chipsEl.querySelector('a[aria-current="true"]'));
+    requestAnimationFrame(function () { requestAnimationFrame(function () { chipsEl.classList.remove("no-anim"); }); });
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(settleChips);
+
   // ---------- Active category while scrolling ----------
-  var activeId = null, ticking = false;
+  var activeId = null, ticking = false, lockActive = false;
   function updateActive() {
     ticking = false;
-    if (!sections.length) return;
+    if (!sections.length || lockActive) return;
     var line = topEl.offsetHeight + 24;
     var current = sections[0];
     for (var i = 0; i < sections.length; i++) {
@@ -812,6 +882,7 @@ img { display: block; max-width: 100%; }
       if (on && a.parentNode === chipsEl) chip = a;
     });
     if (chip) {
+      moveInd(chip);
       var left = chip.offsetLeft - (chipsEl.clientWidth - chip.offsetWidth) / 2;
       chipsEl.scrollTo({ left: Math.max(0, left), behavior: reduceMotion() ? "auto" : "smooth" });
     }
@@ -819,7 +890,130 @@ img { display: block; max-width: 100%; }
   window.addEventListener("scroll", function () {
     if (!ticking) { ticking = true; requestAnimationFrame(updateActive); }
   }, { passive: true });
-  window.addEventListener("resize", updateActive);
+  window.addEventListener("resize", function () { updateActive(); settleChips(); });
+
+  // ---------- Eased jump to a category ----------
+  var anim = null;
+  function easeInOut(p) { return p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2; }
+  function cancelJump() {
+    if (!anim) return;
+    cancelAnimationFrame(anim.raf); anim = null; lockActive = false; updateActive();
+  }
+  // the visitor takes over (wheel, finger, keys): stop the animation right there
+  ["wheel", "touchstart", "keydown"].forEach(function (ev) {
+    window.addEventListener(ev, cancelJump, { passive: true });
+  });
+  function arrive(section) {
+    if (reduceMotion()) return;
+    clearTimeout(section._arriveT);
+    section.classList.remove("arrive");
+    void section.offsetWidth;                 // restart the animation
+    section.classList.add("arrive");
+    section._arriveT = setTimeout(function () { section.classList.remove("arrive"); }, 2000);
+  }
+  function goTo(id) {
+    var target = document.getElementById(id);
+    if (!target) return;
+    cancelJump();
+    history.replaceState(null, "", "#" + id);
+    setActive(id);
+    var margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+    var to = Math.max(0, Math.min(target.getBoundingClientRect().top + window.scrollY - margin, root.scrollHeight - window.innerHeight));
+    var from = window.scrollY, dist = to - from;
+    function done() {
+      var h = target.querySelector("h2");
+      if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+    }
+    if (reduceMotion() || Math.abs(dist) < 2) { window.scrollTo(0, to); done(); arrive(target); return; }
+    // 0.42–0.9 s whatever the distance, so far categories don't take ages
+    var dur = Math.min(900, Math.max(420, 320 + Math.abs(dist) * 0.05));
+    var t0 = null, arrived = false;
+    lockActive = true;
+    anim = { raf: 0 };
+    anim.raf = requestAnimationFrame(function step(now) {
+      if (t0 === null) t0 = now;
+      var p = Math.min(1, (now - t0) / dur);
+      window.scrollTo(0, from + dist * easeInOut(p));
+      if (!arrived && p > 0.7) { arrived = true; arrive(target); }
+      if (p < 1) { anim.raf = requestAnimationFrame(step); return; }
+      anim = null; lockActive = false; done();
+    });
+  }
+  chipsEl.addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-cat]");
+    if (!a) return;
+    e.preventDefault();
+    goTo(a.dataset.cat);
+  });
+
+  // ---------- Dock-style magnification (mouse / trackpad only) ----------
+  var canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
+  var DOCK_MAX = 1.3, DOCK_SIGMA = 75;      // biggest scale, how far the wave reaches (px)
+  var DOCK_SMOOTH = 70;                     // ms; how softly the chips follow the cursor (spring-like)
+  var dockX = null, dockRaf = 0, dockLast = 0, dockCur = [];
+
+  // Where every chip should be for the current cursor position.
+  // The layout is a continuous function of the cursor, so moving across gaps never jumps.
+  function dockTargets(chips) {
+    if (dockX === null) return chips.map(function () { return { tx: 0, s: 1 }; });
+    var box = chipsEl.getBoundingClientRect(), sl = chipsEl.scrollLeft;
+    var gap = parseFloat(getComputedStyle(chipsEl).columnGap) || 8;
+    var base = chips.map(function (c) { return { l: box.left + c.offsetLeft - sl, w: c.offsetWidth }; });
+    var n = base.length, i;
+    // scale from the distance to the cursor (bell curve)
+    var s = base.map(function (b) {
+      var d = dockX - (b.l + b.w / 2);
+      return 1 + (DOCK_MAX - 1) * Math.exp(-(d * d) / (2 * DOCK_SIGMA * DOCK_SIGMA));
+    });
+    // grown layout starting at 0 (gaps keep their size)
+    var P = [], acc = 0;
+    for (i = 0; i < n; i++) { P[i] = acc; acc += base[i].w * s[i] + gap; }
+    // where the cursor point lands in the grown layout
+    var M = dockX - base[0].l;
+    for (i = 0; i < n; i++) {
+      if (dockX < base[i].l) { M = P[i] - (base[i].l - dockX); break; }               // in the gap before chip i
+      if (dockX <= base[i].l + base[i].w) { M = P[i] + (dockX - base[i].l) * s[i]; break; }   // on chip i
+      if (i === n - 1) M = P[i] + base[i].w * s[i] + (dockX - base[i].l - base[i].w);  // past the last chip
+    }
+    var x0 = dockX - M;                       // shift so the point under the cursor stays put
+    // ...but never push the first chip past the bar's left edge (smooth clamp, so still no jumps)
+    if (base[0].l >= box.left) x0 = Math.max(x0, Math.min(base[0].l, box.left + 4));
+    return base.map(function (b, j) {
+      return { tx: x0 + P[j] + b.w * s[j] / 2 - (b.l + b.w / 2), s: s[j] };
+    });
+  }
+  function dockFrame(now) {
+    dockRaf = 0;
+    var chips = [].slice.call(chipsEl.querySelectorAll("a"));
+    if (!chips.length) return;
+    var dt = Math.min(64, now - (dockLast || now)); dockLast = now;
+    var k = 1 - Math.exp(-dt / DOCK_SMOOTH);   // frame-rate independent easing toward the target
+    var T = dockTargets(chips), moving = false;
+    chips.forEach(function (c, i) {
+      var cur = dockCur[i] || (dockCur[i] = { tx: 0, s: 1 });
+      cur.tx += (T[i].tx - cur.tx) * k;
+      cur.s += (T[i].s - cur.s) * k;
+      if (Math.abs(T[i].tx - cur.tx) > 0.05 || Math.abs(T[i].s - cur.s) > 0.0005) moving = true;
+      c.style.transform = "translate3d(" + cur.tx.toFixed(2) + "px,0,0) scale(" + cur.s.toFixed(4) + ")";
+    });
+    if (moving || dockX !== null) { dockRaf = requestAnimationFrame(dockFrame); return; }
+    // fully back at rest: clear transforms and hand back to the sliding pill
+    chips.forEach(function (c) { c.style.transform = ""; });
+    dockCur = []; dockLast = 0;
+    chipsEl.classList.add("no-anim");
+    moveInd(chipsEl.querySelector('a[aria-current="true"]'));
+    chipsEl.classList.remove("docking");
+    requestAnimationFrame(function () { requestAnimationFrame(function () { chipsEl.classList.remove("no-anim"); }); });
+  }
+  function dockKick() { if (!dockRaf) { dockLast = 0; dockRaf = requestAnimationFrame(dockFrame); } }
+  chipsEl.addEventListener("mousemove", function (e) {
+    if (!canHover.matches || reduceMotion()) return;
+    if (!chipsEl.classList.contains("docking")) { chipsEl.classList.add("docking"); dockCur = []; }
+    dockX = e.clientX;
+    dockKick();
+  });
+  chipsEl.addEventListener("mouseleave", function () { if (dockX === null) return; dockX = null; dockKick(); });
+  chipsEl.addEventListener("scroll", function () { if (dockX !== null) dockKick(); }, { passive: true });
 
   // ---------- Mobile menu ----------
   var desktop = window.matchMedia("(min-width: 768px)");
@@ -852,12 +1046,7 @@ img { display: block; max-width: 100%; }
     if (!a) return;
     e.preventDefault();
     closeMenu(false);
-    var target = document.getElementById(a.dataset.cat);
-    if (!target) return;
-    history.replaceState(null, "", "#" + a.dataset.cat);
-    target.scrollIntoView({ behavior: reduceMotion() ? "auto" : "smooth", block: "start" });
-    var h = target.querySelector("h2");
-    if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+    goTo(a.dataset.cat);
   });
   panel.querySelector(".btn-call").addEventListener("click", function () { closeMenu(false); });
 
